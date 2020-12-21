@@ -10,7 +10,7 @@ from examples.reports import get_subscriber_emails
 from zvt import init_log
 from zvt.contract.api import get_entities
 from zvt.domain import Stock, Stock1dKdata, StockValuation
-from zvt.factors import ImprovedMaFactor
+from zvt.factors import VolumeUpMaFactor
 from zvt.factors.target_selector import TargetSelector
 from zvt.informer.informer import EmailInformer
 
@@ -37,7 +37,7 @@ def report_vol_up_250():
             # 计算均线
             my_selector = TargetSelector(start_timestamp='2018-10-01', end_timestamp=target_date)
             # add the factors
-            factor1 = ImprovedMaFactor(start_timestamp='2018-10-01', end_timestamp=target_date)
+            factor1 = VolumeUpMaFactor(start_timestamp='2018-10-01', end_timestamp=target_date)
 
             my_selector.add_filter_factor(factor1)
 

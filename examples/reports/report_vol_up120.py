@@ -9,7 +9,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from zvt import init_log
 from zvt.contract.api import get_entities
 from zvt.domain import Stock, Stock1dKdata, StockValuation
-from zvt.factors import ImprovedMaFactor
+from zvt.factors import VolumeUpMaFactor
 from zvt.factors.target_selector import TargetSelector
 from zvt.informer.informer import EmailInformer
 
@@ -36,7 +36,7 @@ def report_vol_up_120():
             # 计算均线
             my_selector = TargetSelector(start_timestamp='2019-06-01', end_timestamp=target_date)
             # add the factors
-            factor1 = ImprovedMaFactor(start_timestamp='2019-06-01', end_timestamp=target_date, windows=[120])
+            factor1 = VolumeUpMaFactor(start_timestamp='2019-06-01', end_timestamp=target_date, windows=[120])
 
             my_selector.add_filter_factor(factor1)
 

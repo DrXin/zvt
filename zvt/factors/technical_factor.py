@@ -35,7 +35,9 @@ class TechnicalFactor(Factor, metaclass=FactorMeta):
                  transformer: Transformer = None,
                  accumulator: Accumulator = None,
                  need_persist: bool = False,
-                 dry_run: bool = False, factor_name: str = None, clear_state: bool = False,
+                 dry_run: bool = False,
+                 factor_name: str = None,
+                 clear_state: bool = False,
                  adjust_type: Union[AdjustType, str] = None) -> None:
         if columns is None:
             columns = ['id', 'entity_id', 'timestamp', 'level', 'open', 'close', 'high', 'low']
@@ -46,9 +48,6 @@ class TechnicalFactor(Factor, metaclass=FactorMeta):
 
         self.adjust_type = adjust_type
         self.data_schema = get_kdata_schema(entity_schema.__name__, level=level, adjust_type=adjust_type)
-
-        if transformer:
-            self.indicator_cols = transformer.indicators
 
         if not factor_name:
             if type(level) == str:
@@ -61,30 +60,9 @@ class TechnicalFactor(Factor, metaclass=FactorMeta):
                          category_field, time_field, computing_window, keep_all_timestamp, fill_method,
                          effective_number, transformer, accumulator, need_persist, dry_run, factor_name, clear_state)
 
-    def __json__(self):
-        result = super().__json__()
-        result['indicator_cols'] = self.indicator_cols
-        return result
-
-    for_json = __json__  # supported by simplejson
-
 
 class MacdFactor(TechnicalFactor):
-    def __init__(self, entity_schema: Type[EntityMixin] = Stock, provider: str = None, entity_provider: str = None,
-                 entity_ids: List[str] = None, exchanges: List[str] = None, codes: List[str] = None,
-                 the_timestamp: Union[str, pd.Timestamp] = None, start_timestamp: Union[str, pd.Timestamp] = None,
-                 end_timestamp: Union[str, pd.Timestamp] = None, columns: List = None, filters: List = None,
-                 order: object = None, limit: int = None, level: Union[str, IntervalLevel] = IntervalLevel.LEVEL_1DAY,
-                 category_field: str = 'entity_id', time_field: str = 'timestamp', computing_window: int = None,
-                 keep_all_timestamp: bool = False, fill_method: str = 'ffill', effective_number: int = None,
-                 need_persist: bool = False,
-                 dry_run: bool = False, factor_name: str = None, clear_state: bool = False,
-                 adjust_type: Union[AdjustType, str] = None) -> None:
-        super().__init__(entity_schema, provider, entity_provider, entity_ids, exchanges, codes, the_timestamp,
-                         start_timestamp, end_timestamp, columns, filters, order, limit, level, category_field,
-                         time_field, computing_window, keep_all_timestamp, fill_method, effective_number,
-                         MacdTransformer(),
-                         None, need_persist, dry_run, factor_name, clear_state, adjust_type)
+    transformer = MacdTransformer()
 
     def drawer_factor_df_list(self) -> Optional[List[pd.DataFrame]]:
         return None
@@ -96,28 +74,13 @@ class MacdFactor(TechnicalFactor):
 class BullFactor(MacdFactor):
     def do_compute(self):
         super().do_compute()
+        # 黄白线在0轴上
         s = (self.factor_df['diff'] > 0) & (self.factor_df['dea'] > 0)
         self.result_df = s.to_frame(name='score')
 
 
 class KeepBullFactor(BullFactor):
-    def __init__(self, entity_schema: Type[EntityMixin] = Stock, provider: str = None, entity_provider: str = None,
-                 entity_ids: List[str] = None, exchanges: List[str] = None, codes: List[str] = None,
-                 the_timestamp: Union[str, pd.Timestamp] = None, start_timestamp: Union[str, pd.Timestamp] = None,
-                 end_timestamp: Union[str, pd.Timestamp] = None,
-                 columns=None,
-                 filters: List = None, order: object = None, limit: int = None,
-                 level: Union[str, IntervalLevel] = IntervalLevel.LEVEL_1DAY, category_field: str = 'entity_id',
-                 time_field: str = 'timestamp', computing_window: int = None, keep_all_timestamp: bool = False,
-                 fill_method: str = 'ffill', effective_number: int = None, transformer: Transformer = MacdTransformer(),
-                 accumulator: Accumulator = None, need_persist: bool = False, dry_run: bool = False,
-                 factor_name: str = None, clear_state: bool = False,
-                 adjust_type: Union[AdjustType, str] = None, keep_window=20) -> None:
-        self.keep_window = keep_window
-        super().__init__(entity_schema, provider, entity_provider, entity_ids, exchanges, codes, the_timestamp,
-                         start_timestamp, end_timestamp, columns, filters, order, limit, level, category_field,
-                         time_field, computing_window, keep_all_timestamp, fill_method, effective_number, transformer,
-                         accumulator, need_persist, dry_run, factor_name, clear_state, adjust_type)
+    keep_window = 20
 
     def do_compute(self):
         super().do_compute()
@@ -143,9 +106,14 @@ class LiveOrDeadFactor(MacdFactor):
         self.result_df = self.factor_df[['score']]
 
 
-class GoldCrossFactor(LiveOrDeadFactor):
+class GoldCrossFactor(MacdFactor):
     def do_compute(self):
         super().do_compute()
+        # 白线在黄线之上
+        s = self.factor_df['diff'] > self.factor_df['dea']
+        # live=True 白线>黄线
+        # live=False 白线<黄线
+        self.factor_df['live'] = s.to_frame()
         s = self.factor_df['live'] == 1
         self.result_df = s.to_frame(name='score')
 
@@ -166,4 +134,4 @@ if __name__ == '__main__':
     print(factor.factor_df.loc[('stock_sz_000338',)])
     print(factor.factor_df.loc[('stock_sz_000778',)])
 # the __all__ is generated
-__all__ = ['TechnicalFactor', 'BullFactor', 'MacdFactor', 'KeepBullFactor', 'LiveOrDeadFactor', 'GoldCrossFactor']
+__all__ = ['TechnicalFactor', 'MacdFactor', 'BullFactor', 'KeepBullFactor', 'LiveOrDeadFactor', 'GoldCrossFactor']

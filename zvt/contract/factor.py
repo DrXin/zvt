@@ -159,7 +159,6 @@ class Scorer(object):
 class FactorType(enum.Enum):
     filter = 'filter'
     score = 'score'
-    state = 'state'
 
 
 def register_class(target_class):
@@ -195,6 +194,9 @@ class Factor(DataReader, DataListener):
 
     # define the schema for persist,its columns should be same as indicators in transformer or accumulator
     factor_schema: Type[Mixin] = None
+
+    transformer: Transformer = None
+    accumulator: Accumulator = None
 
     def __init__(self,
                  data_schema: Type[Mixin],
@@ -253,8 +255,16 @@ class Factor(DataReader, DataListener):
         self.keep_all_timestamp = keep_all_timestamp
         self.fill_method = fill_method
         self.effective_number = effective_number
-        self.transformer = transformer
-        self.accumulator = accumulator
+
+        if transformer:
+            self.transformer = transformer
+        else:
+            self.transformer = self.__class__.transformer
+
+        if accumulator:
+            self.accumulator = accumulator
+        else:
+            self.accumulator = self.__class__.accumulator
 
         self.need_persist = need_persist
         self.dry_run = dry_run
@@ -390,10 +400,10 @@ class Factor(DataReader, DataListener):
         # 该操作较慢，只适合做基本面的运算
         idx = pd.date_range(self.start_timestamp, self.end_timestamp)
         new_index = pd.MultiIndex.from_product([self.result_df.index.levels[0], idx],
-                                               names=['entity_id', self.time_field])
+                                               names=[self.category_field, self.time_field])
         self.result_df = self.result_df.loc[~self.result_df.index.duplicated(keep='first')]
         self.result_df = self.result_df.reindex(new_index)
-        self.result_df = self.result_df.fillna(method=self.fill_method, limit=self.effective_number)
+        self.result_df = self.result_df.groupby(level=0).fillna(method=self.fill_method, limit=self.effective_number)
 
     def on_data_loaded(self, data: pd.DataFrame):
         self.compute()
@@ -458,45 +468,13 @@ class FilterFactor(Factor):
 
 class ScoreFactor(Factor):
     factor_type = FactorType.score
-
-    def __init__(self, data_schema: Mixin, entity_schema: EntityMixin = None, provider: str = None,
-                 entity_provider: str = None, entity_ids: List[str] = None, exchanges: List[str] = None,
-                 codes: List[str] = None, the_timestamp: Union[str, pd.Timestamp] = None,
-                 start_timestamp: Union[str, pd.Timestamp] = None, end_timestamp: Union[str, pd.Timestamp] = None,
-                 columns: List = None, filters: List = None, order: object = None, limit: int = None,
-                 level: Union[str, IntervalLevel] = IntervalLevel.LEVEL_1DAY, category_field: str = 'entity_id',
-                 time_field: str = 'timestamp', computing_window: int = None, keep_all_timestamp: bool = False,
-                 fill_method: str = 'ffill', effective_number: int = None, transformer: Transformer = None,
-                 accumulator: Accumulator = None, need_persist: bool = False, dry_run: bool = False,
-                 factor_name: str = None, clear_state: bool = False,
-                 scorer: Scorer = None) -> None:
-        self.scorer = scorer
-        super().__init__(data_schema, entity_schema, provider, entity_provider, entity_ids, exchanges, codes,
-                         the_timestamp, start_timestamp, end_timestamp, columns, filters, order, limit, level,
-                         category_field, time_field, computing_window, keep_all_timestamp, fill_method,
-                         effective_number, transformer, accumulator, need_persist, dry_run, factor_name, clear_state)
+    scorer: Scorer = None
 
     def do_compute(self):
         super().do_compute()
-
         if pd_is_not_null(self.factor_df) and self.scorer:
             self.result_df = self.scorer.score(self.factor_df)
 
 
-class StateFactor(Factor):
-    factor_type = FactorType.state
-    states = []
-
-    def get_state(self, timestamp, entity_id):
-        pass
-
-    def get_short_state(self):
-        pass
-
-    def get_long_state(self):
-        pass
-
-
 # the __all__ is generated
-__all__ = ['Indicator', 'Transformer', 'Accumulator', 'Scorer', 'FactorType', 'Factor', 'FilterFactor', 'ScoreFactor',
-           'StateFactor']
+__all__ = ['Indicator', 'Transformer', 'Accumulator', 'Scorer', 'FactorType', 'Factor', 'FilterFactor', 'ScoreFactor']

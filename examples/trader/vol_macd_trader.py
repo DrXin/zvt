@@ -21,7 +21,7 @@ class VolMacdTrader(StockTrader):
         # 日线策略
         day_bull_selector = TargetSelector(entity_ids=entity_ids, entity_schema=entity_schema, exchanges=exchanges,
                                            codes=codes, start_timestamp=start_timestamp, end_timestamp=end_timestamp,
-                                           provider='joinquant', level=IntervalLevel.LEVEL_1DAY)
+                                           provider='joinquant', level=IntervalLevel.LEVEL_1DAY, long_threshold=0.7)
         day_bull_factor = BullFactor(entity_ids=entity_ids, entity_schema=entity_schema, exchanges=exchanges,
                                      codes=codes, start_timestamp=start_timestamp, end_timestamp=end_timestamp,
                                      provider='joinquant', level=IntervalLevel.LEVEL_1DAY)
